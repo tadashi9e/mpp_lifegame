@@ -245,11 +245,5 @@ class Controller:
 if __name__ == '__main__':
     import sys
     c = Controller(100)
-    c.test_line()
-    c.test_n()
-    c.test_e()
-    c.test_w()
-    c.test_s()
-    c.reset()
     c.load_life(128, 128, sys.argv[1])
     c.do_life()
