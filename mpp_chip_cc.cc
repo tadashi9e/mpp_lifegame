@@ -205,52 +205,60 @@ class Router {
     }
   }
   void rotate_news_n() {
-    for (std::size_t x = 0; x < width / 64; ++x) {
-      uint64_t const data0 = mpp->send(p64id_of_pos2d(x * 64, 0));
+    std::size_t const width64 = width / 64;
+    for (std::size_t x = 0; x < width64; ++x) {
+      uint64_t const data0 = mpp->send(x);
+      std::size_t p0 = x + width64;
+      std::size_t p1 = x;
       for (std::size_t y = 1; y < height; ++y) {
-        std::size_t const p0 = p64id_of_pos2d(x * 64, y);
-        std::size_t const p1 = p64id_of_pos2d(x * 64, y-1);
         uint64_t const data = mpp->send(p0);
         mpp->recv(p1, data);
+        p0 += width64;
+        p1 += width64;
       }
-      mpp->recv(p64id_of_pos2d(x * 64, height - 1), data0);
+      mpp->recv(p1, data0);
     }
   }
   void rotate_news_s() {
-    for (std::size_t x = 0; x < width / 64; ++x) {
-      uint64_t const data0 = mpp->send(p64id_of_pos2d(x * 64, height - 1));
+    std::size_t const width64 = width / 64;
+    for (std::size_t x = 0; x < width64; ++x) {
+      uint64_t const data0 = mpp->send(x + width64 * (height - 1));
+      std::size_t p0 = x + width64 * (height - 1);
+      std::size_t p1 = p0 + width64;
       for (int y = static_cast<int>(height - 1); y >= 0; --y) {
-        std::size_t const p0 = p64id_of_pos2d(x * 64, y);
-        std::size_t const p1 = p64id_of_pos2d(x * 64, y + 1);
         uint64_t const data = mpp->send(p0);
         mpp->recv(p1, data);
+        p0 -= width64;
+        p1 -= width64;
       }
-      mpp->recv(p64id_of_pos2d(x * 64, 0), data0);
+      mpp->recv(x, data0);
     }
   }
   void rotate_news_e() {
+    std::size_t const width64 = width / 64;
     for (std::size_t y = 0; y < height; ++y) {
-      uint64_t carry = mpp->send(p64id_of_pos2d(width - 64, y)) >> 63;
-      for (std::size_t x = 0; x < width / 64; ++x) {
-        std::size_t p = p64id_of_pos2d(x * 64, y);
-        uint64_t data = mpp->send(p);
-        uint64_t const carry2 = data >> 63;
-        data = (data << 1) | (carry & 0x01);
+      uint64_t carry = mpp->send(width64 - 1 + width64 * y) >> 63;
+      for (std::size_t x = 0; x < width64; ++x) {
+        std::size_t p = x + width64 * y;
+        uint64_t const data0 = mpp->send(p);
+        uint64_t const carry2 = data0 >> 63;
+        uint64_t const data1 = (data0 << 1) | (carry & 0x01);
         carry = carry2;
-        mpp->recv(p, data);
+        mpp->recv(p, data1);
       }
     }
   }
   void rotate_news_w() {
+    std::size_t const width64 = width / 64;
     for (std::size_t y = 0; y < height; ++y) {
-      uint64_t carry = mpp->send(p64id_of_pos2d(0, y)) & 0x01;
-      for (int x = static_cast<int>(width / 64 - 1); x >= 0; --x) {
-        std::size_t p = p64id_of_pos2d(x * 64, y);
-        uint64_t data = mpp->send(p);
-        uint64_t const carry2 = data & 0x01;
-        data = (carry << 63) | (data >> 1);
+      uint64_t carry = mpp->send(width64 * y) & 0x01;
+      for (int x = static_cast<int>(width64 - 1); x >= 0; --x) {
+        std::size_t p = x + width64 * y;
+        uint64_t const data0 = mpp->send(p);
+        uint64_t const carry2 = data0 & 0x01;
+        uint64_t const data1 = (carry << 63) | (data0 >> 1);
         carry = carry2;
-        mpp->recv(p, data);
+        mpp->recv(p, data1);
       }
     }
   }
