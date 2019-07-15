@@ -170,7 +170,7 @@ class Controller:
         self.recv_memory(current_cell)
         # ルータデータフラグにある現在のセル状態を青色で表示
         self.to_led_b()
-        self.led_update()
+        #self.led_update()
         # ルータはセル状態を S-E-N-N-W-W-S-S と順に回す。
         # 各ノードは回ってきたセル状態が 1 だった回数をカウントする
         self.router.rotate_s()
