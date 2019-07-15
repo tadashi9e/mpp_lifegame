@@ -31,8 +31,7 @@ class LEDPanel:
         self._screen = pygame.display.set_mode(
             (self._width, self._height))
         pygame.display.set_caption('MPP simulator')
-        self.images = []
-        self.generate_images = False
+        self.generate_images = None
         self.clock = pygame.time.Clock()
     def set64_r(self, x, y, f64):
         p64id = p64id_of_pos2d(x, y)
@@ -44,10 +43,10 @@ class LEDPanel:
         p64id = p64id_of_pos2d(x, y)
         self._b[p64id] = f64
     def start_generate_images(self):
-        self.generate_images = True
+        self.generate_images = []
     def update_display(self):
         pid = 0
-        if self.generate_images:
+        if self.generate_images is not None:
             if len(self.generate_images) > 0:
                 image = self.generate_images[
                     len(self.generate_images) - 1].copy()
@@ -70,7 +69,7 @@ class LEDPanel:
                 pygame.draw.rect(
                     self._screen, color,
                     pygame.Rect(px, py, self._cell_size, self._cell_size))
-                if self.generate_images:
+                if self.generate_images is not None:
                     draw.rectangle((px, py,
                                     px + self._cell_size,
                                     py + self._cell_size),
@@ -81,8 +80,8 @@ class LEDPanel:
         self._prev_r = self._r[:]
         self._prev_g = self._g[:]
         self._prev_b = self._b[:]
-        if self.generate_images:
-            self.images.append(image)
+        if self.generate_images is not None:
+            self.generate_images.append(image)
     def clock_tick(self, fps):
         u'''与えられたフレームレートに従って待つ。
         Args:
@@ -94,6 +93,7 @@ class LEDPanel:
         Args:
             gen_file_path : str : アニメーション GIF ファイル作成先パス名
         '''
-        self.images[0].save(gen_file_path,
-                            save_all=True, append_images=self.images[1:],
-                            **kwargs)
+        self.generate_images[0].save(
+            gen_file_path,
+            save_all=True, append_images=self.generate_images[1:],
+            **kwargs)
