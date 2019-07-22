@@ -6,6 +6,7 @@ u'''
 from mpp_chip import MPP, NewsRouter
 from mpp_display import LEDPanel, WIDTH, HEIGHT
 from life_file import read_life_105_file
+import random
 
 FLAG_ZERO = 0
 FLAG_ROUTE_DATA = 63
@@ -137,6 +138,13 @@ class Controller:
         u'''全PE上に確保したメモリをすべて開放する。
         '''
         self.htop = 0
+    def randomize(self, rate=0.5):
+        u'''与えられた確率に従ってルータデータフラグの値をランダムに設定する。
+        '''
+        for y in range(0, HEIGHT):
+            for x in range(0, WIDTH):
+                self.router.unicast_2d(
+                    x, y, 1 if random.random() <= rate else 0)
     def load_life(self, x0, y0, path):
         u'''与えられたファイルパスからライフゲームのパターンファイルを読み込む。
         読み込んだ内容は座標 (x0, y0) を起点としてルータデータフラグに反映する。
@@ -245,5 +253,8 @@ class Controller:
 if __name__ == '__main__':
     import sys
     c = Controller(100)
-    c.load_life(128, 128, sys.argv[1])
+    if len(sys.argv) < 2:
+        c.randomize()
+    else:
+        c.load_life(128, 128, sys.argv[1])
     c.do_life()

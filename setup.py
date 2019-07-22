@@ -7,7 +7,7 @@ python setup.py build_ext --inplace
 from distutils.core import setup, Extension
 
 MPP_CHIP_CC_MODULE = Extension(
-    'mpp_chip_cc', sources=['mpp_chip_cc.cc'])
+    'mpp_chip_cc', sources=['mpp_chip_cc.cc'], depends=['mpp_chip_cc.h'])
 
 setup(name='mpp_chip_cc',
       version='0.0.1',

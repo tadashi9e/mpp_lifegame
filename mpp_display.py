@@ -13,6 +13,7 @@ def p64id_of_pos2d(x, y):
     return pid_of_pos2d(x, y) >> 6
 
 import pygame
+from pygame.locals import DOUBLEBUF
 from PIL import Image
 from PIL import ImageDraw
 
@@ -29,7 +30,8 @@ class LEDPanel:
         self._height = HEIGHT * cell_size
         self._bg_color = (0, 0, 0)
         self._screen = pygame.display.set_mode(
-            (self._width, self._height))
+            (self._width, self._height), DOUBLEBUF)
+        self._screen.set_alpha(None)
         pygame.display.set_caption('MPP simulator')
         self.generate_images = None
         self.clock = pygame.time.Clock()
@@ -66,9 +68,10 @@ class LEDPanel:
                          255 if (b & mask) != 0 else 0)
                 (x, y) = pos2d_of_pid(pid)
                 (px, py) = (x * self._cell_size, y * self._cell_size)
+                rect = pygame.Rect(px, py, self._cell_size, self._cell_size)
                 pygame.draw.rect(
                     self._screen, color,
-                    pygame.Rect(px, py, self._cell_size, self._cell_size))
+                    rect)
                 if self.generate_images is not None:
                     draw.rectangle((px, py,
                                     px + self._cell_size,
