@@ -63,9 +63,15 @@ class LEDPanel:
                 continue
             for i in range(0, 64):
                 mask = 1 << i
+                pcolor = (255 if (pr & mask) != 0 else 0,
+                          255 if (pg & mask) != 0 else 0,
+                          255 if (pb & mask) != 0 else 0)
                 color = (255 if (r & mask) != 0 else 0,
                          255 if (g & mask) != 0 else 0,
                          255 if (b & mask) != 0 else 0)
+                if pcolor == color:
+                    pid += 1
+                    continue
                 (x, y) = pos2d_of_pid(pid)
                 (px, py) = (x * self._cell_size, y * self._cell_size)
                 rect = pygame.Rect(px, py, self._cell_size, self._cell_size)
