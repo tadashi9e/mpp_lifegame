@@ -13,21 +13,28 @@
 #include "mpp_chip_cc.h"
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+
+
 extern "C" {
 
+typedef MPP<1024> MPP_T;
+typedef Router<1024, 256, 256> ROUTER_T;
+
 static void mpp_chip_free(PyObject* obj) {
-  MPP const* mpp = reinterpret_cast<MPP*>(PyCapsule_GetPointer(obj, "MPP"));
+  MPP_T
+    const* mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj,
+                                                                   "MPP"));
   delete mpp;
 }
 
 static PyObject*
 mpp_chip_MPP(PyObject* self, PyObject* args) {
-  int nchips;
   std::size_t memory_size;
-  if (!PyArg_ParseTuple(args, "kk", &nchips, &memory_size)) {
+  if (!PyArg_ParseTuple(args, "k", &memory_size)) {
     return NULL;
   }
-  return PyCapsule_New(new MPP(nchips, memory_size), "MPP", mpp_chip_free);
+  return PyCapsule_New(new MPP_T(memory_size),
+                       "MPP", mpp_chip_free);
 }
 static PyObject*
 mpp_chip_MPP_reset(PyObject* self, PyObject* args) {
@@ -35,7 +42,8 @@ mpp_chip_MPP_reset(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  MPP* mpp = reinterpret_cast<MPP*>(PyCapsule_GetPointer(obj, "MPP"));
+  MPP_T*
+    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
   if (!mpp) {
     return NULL;
   }
@@ -51,7 +59,8 @@ mpp_chip_MPP_load_a(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "OkBB", &obj, &addr_a, &read_flag, &op_s)) {
     return NULL;
   }
-  MPP* mpp = reinterpret_cast<MPP*>(PyCapsule_GetPointer(obj, "MPP"));
+  MPP_T*
+    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
   if (!mpp) {
     return NULL;
   }
@@ -67,7 +76,8 @@ mpp_chip_MPP_load_b(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "OkBB", &obj, &addr_b, &context_flag, &op_c)) {
     return NULL;
   }
-  MPP* mpp = reinterpret_cast<MPP*>(PyCapsule_GetPointer(obj, "MPP"));
+  MPP_T*
+    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
   if (!mpp) {
     return NULL;
   }
@@ -82,7 +92,8 @@ mpp_chip_MPP_store(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "OBB", &obj, &write_flag, &context_value)) {
     return NULL;
   }
-  MPP* mpp = reinterpret_cast<MPP*>(PyCapsule_GetPointer(obj, "MPP"));
+  MPP_T*
+    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
   if (!mpp) {
     return NULL;
   }
@@ -97,7 +108,8 @@ mpp_chip_MPP_recv(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "Oik", &obj, &chip_no, &value)) {
     return NULL;
   }
-  MPP* mpp = reinterpret_cast<MPP*>(PyCapsule_GetPointer(obj, "MPP"));
+  MPP_T*
+    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
   if (!mpp) {
     return NULL;
   }
@@ -111,7 +123,8 @@ mpp_chip_MPP_send(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "Oi", &obj, &chip_no)) {
     return NULL;
   }
-  MPP* mpp = reinterpret_cast<MPP*>(PyCapsule_GetPointer(obj, "MPP"));
+  MPP_T*
+    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
   if (!mpp) {
     return NULL;
   }
@@ -119,24 +132,23 @@ mpp_chip_MPP_send(PyObject* self, PyObject* args) {
   return PyLong_FromLong(value);
 }
 static void mpp_router_free(PyObject* obj) {
-  Router const*
-    router = reinterpret_cast<Router*>(PyCapsule_GetPointer(obj, "Router"));
+  ROUTER_T const*
+    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
   delete router;
 }
 
 static PyObject*
 mpp_chip_Router(PyObject* self, PyObject* args) {
   PyObject* obj;
-  int width;
-  int height;
-  if (!PyArg_ParseTuple(args, "Oii", &obj, &width, &height)) {
+  if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  MPP* mpp = reinterpret_cast<MPP*>(PyCapsule_GetPointer(obj, "MPP"));
+  MPP_T*
+    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
   if (!mpp) {
     return NULL;
   }
-  return PyCapsule_New(new Router(mpp, width, height),
+  return PyCapsule_New(new ROUTER_T(mpp),
                        "Router", mpp_router_free);
 }
 static PyObject*
@@ -145,8 +157,8 @@ mpp_chip_Router_news_n(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  Router*
-    router = reinterpret_cast<Router*>(PyCapsule_GetPointer(obj, "Router"));
+  ROUTER_T*
+    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
   router->rotate_news_n();
   Py_RETURN_NONE;
 }
@@ -156,8 +168,8 @@ mpp_chip_Router_news_e(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  Router*
-    router = reinterpret_cast<Router*>(PyCapsule_GetPointer(obj, "Router"));
+  ROUTER_T*
+    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
   router->rotate_news_e();
   Py_RETURN_NONE;
 }
@@ -167,8 +179,8 @@ mpp_chip_Router_news_w(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  Router*
-    router = reinterpret_cast<Router*>(PyCapsule_GetPointer(obj, "Router"));
+  ROUTER_T*
+    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
   router->rotate_news_w();
   Py_RETURN_NONE;
 }
@@ -178,8 +190,8 @@ mpp_chip_Router_news_s(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  Router*
-    router = reinterpret_cast<Router*>(PyCapsule_GetPointer(obj, "Router"));
+  ROUTER_T*
+    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
   router->rotate_news_s();
   Py_RETURN_NONE;
 }
@@ -192,8 +204,8 @@ mpp_chip_Router_unicast_2d(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "Oiii", &obj, &x, &y, &b)) {
     return NULL;
   }
-  Router*
-    router = reinterpret_cast<Router*>(PyCapsule_GetPointer(obj, "Router"));
+  ROUTER_T*
+    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
   router->unicast_2d(x, y, b);
   Py_RETURN_NONE;
 }
@@ -205,8 +217,8 @@ mpp_chip_Router_read64_2d(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "Oii", &obj, &x, &y)) {
     return NULL;
   }
-  Router*
-    router = reinterpret_cast<Router*>(PyCapsule_GetPointer(obj, "Router"));
+  ROUTER_T*
+    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
   uint64_t value = router->read64_2d(x, y);
   return PyLong_FromLong(value);
 }

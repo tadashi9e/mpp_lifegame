@@ -21,8 +21,8 @@ class Controller:
         Args
             memory_size : 各 PE のメモリサイズ（ビット数）
         '''
-        self.mpp = MPP(1024, memory_size)
-        self.router = NewsRouter(self.mpp, WIDTH, HEIGHT)
+        self.mpp = MPP(memory_size)
+        self.router = NewsRouter(self.mpp)
         self.panel = LEDPanel()
         # ヒープ管理
         self.htop = 0

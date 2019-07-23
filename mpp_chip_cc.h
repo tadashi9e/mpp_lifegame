@@ -57,8 +57,8 @@ alu64_core(uint64_t a,
  * A, B, F, コンテキストフラグ の値および真理値表 OP_S を元に A を更新する。
  * 64 * nchips 個の PE について一度に処理する。
  */
-void alu64_s(std::size_t nchips,
-             uint64_t* a,
+template<std::size_t nchips>
+void alu64_s(uint64_t* a,
              uint64_t const* b,
              uint64_t const* f,
              uint64_t const* context,
@@ -76,8 +76,8 @@ void alu64_s(std::size_t nchips,
  * A, B, F, コンテキストフラグ の値および真理値表 OP_C を元にフラグを更新する。
  * 64 * nchips 個の PE について一度に処理する。
  */
-void alu64_c(std::size_t nchips,
-             uint64_t const* a,
+template<std::size_t nchips>
+void alu64_c(uint64_t const* a,
              uint64_t const* b,
              uint64_t const* f,
              uint64_t const* context,
@@ -97,8 +97,8 @@ void alu64_c(std::size_t nchips,
 /**
  * 64 * nchips 個の PE について ALU 処理を行う。
  */
-void alu64(std::size_t nchips,
-           uint64_t* a,
+template<std::size_t nchips>
+void alu64(uint64_t* a,
            uint64_t const* b,
            uint64_t const* f,
            uint64_t const* context,
@@ -106,19 +106,16 @@ void alu64(std::size_t nchips,
            uint8_t op_s,
            uint8_t op_c,
            bool context_value) {
-  alu64_s(nchips, a, b, f, context, context_value, op_s);
-  alu64_c(nchips, a, b, f, context, write_flag, context_value, op_c);
+  alu64_s<nchips>(a, b, f, context, context_value, op_s);
+  alu64_c<nchips>(a, b, f, context, write_flag, context_value, op_c);
 }
 
 /**
  * 64 * nchips 個の PE
  */
+template<std::size_t nchips>
 class MPP {
  private:
-  /**
-   * PE チップの数。各チップには 64 個の PE が搭載されている。
-   */
-  size_t nchips;
   /**
    * フラグに関する定義: 0 番目のフラグの値は常に 0 とする。
    */
@@ -149,7 +146,7 @@ class MPP {
   uint8_t op_c;  // C 真理値表。
 
  public:
-  MPP(std::size_t nchips, std::size_t address_size) : nchips(nchips) {
+  MPP(std::size_t address_size) {
     memory.resize(nchips * address_size);
     flags.resize(nchips * FLAG_MAX);
   }
@@ -177,7 +174,7 @@ class MPP {
   }
   void store(uint8_t write_flag,
              bool context_value) {
-    alu64(nchips,
+    alu64<nchips>(
           &memory[nchips * addr_a],
           &memory[nchips * addr_b],
           &flags[nchips * read_flag],
@@ -193,16 +190,11 @@ class MPP {
   }
 };
 
+template<std::size_t nchips, std::size_t width, std::size_t height>
 class Router {
  public:
-  Router(MPP* mpp, std::size_t width, std::size_t height)
-    : mpp(mpp), width(width), height(height) {
-    if (width % 64) {
-      throw(std::invalid_argument("WIDTH must be n times 64"));
-    }
-    if (mpp->total_cores() != width * height) {
-      throw(std::invalid_argument("number of cores not match WIDTH*HEIGHT"));
-    }
+  Router(MPP<nchips>* mpp)
+    : mpp(mpp) {
   }
   void rotate_news_n() {
     std::size_t const width64 = width / 64;
@@ -279,9 +271,7 @@ class Router {
   }
 
  private:
-  MPP* mpp;
-  std::size_t width;
-  std::size_t height;
+  MPP<nchips>* mpp;
   std::size_t pid_of_pos2d(int x, int y) const {
     return x + (y * width);
   }

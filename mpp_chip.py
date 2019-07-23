@@ -7,10 +7,10 @@ import mpp_chip_cc
 class MPP(object):
     u'''全 PE についてマイクロ命令を呼び出す。
     '''
-    def __init__(self, nchips, memory_size):
+    def __init__(self, memory_size):
         u'''
         '''
-        self._mpp = mpp_chip_cc.newMPP(nchips, memory_size)
+        self._mpp = mpp_chip_cc.newMPP(memory_size)
     def reset(self):
         u'''フラグの値をリセットする
         '''
@@ -61,8 +61,8 @@ class MPP(object):
 class NewsRouter(object):
     u'''東西南北方向に配送を行うルータ
     '''
-    def __init__(self, mpp, width, height):
-        self._router = mpp_chip_cc.newRouter(mpp._mpp, width, height)
+    def __init__(self, mpp):
+        self._router = mpp_chip_cc.newRouter(mpp._mpp)
     def rotate_n(self):
         u'''N(北) 方向にルータフラグデータをローテートする。
         '''
