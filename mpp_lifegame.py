@@ -253,6 +253,15 @@ class Controller:
 if __name__ == '__main__':
     import sys
     c = Controller(100)
+    c.test_line()
+    c.test_n()
+    c.panel.clock_tick(1)
+    c.test_e()
+    c.panel.clock_tick(1)
+    c.test_s()
+    c.panel.clock_tick(1)
+    c.test_w()
+    c.panel.clock_tick(1)
     if len(sys.argv) < 2:
         c.randomize()
     else:

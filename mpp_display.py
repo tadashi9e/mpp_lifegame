@@ -1,4 +1,6 @@
 # -*- coding:utf-8; mode:python -*-
+import threading
+
 WIDTH=256
 HEIGHT=256
 WIDTH_BITS=8
@@ -19,6 +21,9 @@ from PIL import ImageDraw
 
 class LEDPanel:
     def __init__(self, cell_size=2):
+        self._lock = threading.Lock()
+        self._updating = False
+        self._dirty = False
         self._r = [0] * 1024
         self._g = [0] * 1024
         self._b = [0] * 1024
@@ -36,17 +41,47 @@ class LEDPanel:
         self.generate_images = None
         self.clock = pygame.time.Clock()
     def set64_r(self, x, y, f64):
+        u'''R 情報を更新する。同時に dirty=True にする。
+        '''
         p64id = p64id_of_pos2d(x, y)
+        self._lock.acquire()
         self._r[p64id] = f64
+        self._dirty = True
+        self._lock.release()
     def set64_g(self, x, y, f64):
+        u'''G 情報を更新する。同時に dirty=True にする。
+        '''
         p64id = p64id_of_pos2d(x, y)
+        self._lock.acquire()
         self._g[p64id] = f64
+        self._dirty = True
+        self._lock.release()
     def set64_b(self, x, y, f64):
+        u'''B 情報を更新する。同時に dirty=True にする。
+        '''
         p64id = p64id_of_pos2d(x, y)
+        self._lock.acquire()
         self._b[p64id] = f64
+        self._dirty = True
+        self._lock.release()
     def start_generate_images(self):
         self.generate_images = []
     def update_display(self):
+        u'''描画スレッドが動作中でないなら描画スレッドを起動する。
+        描画によって dirty=False になる。
+        '''
+        self._lock.acquire()
+        if self._updating:
+            self._lock.release()
+            return
+        self._updating = True
+        self._dirty = False
+        self._lock.release()
+        threading.Thread(target=self._update_display).start()
+    def _update_display(self):
+        u'''描画処理本体。
+        描画終了時点で dirty=True だったら再描画を行う。
+        '''
         pid = 0
         if self.generate_images is not None:
             if len(self.generate_images) > 0:
@@ -55,9 +90,15 @@ class LEDPanel:
             else:
                 image = Image.new('RGB', (self._width, self._height), (0,0,0))
             draw = ImageDraw.Draw(image)
-        for pr, pg, pb, r, g, b in zip(
-                self._prev_r, self._prev_g, self._prev_b,
-                self._r, self._g, self._b):
+        for index in range(0, len(self._r)):
+            pr = self._prev_r[index]
+            pg = self._prev_g[index]
+            pb = self._prev_b[index]
+            self._lock.acquire()
+            r = self._r[index]
+            g = self._g[index]
+            b = self._b[index]
+            self._lock.release()
             if pr == r and pg == g and pb == b:
                 pid += 64
                 continue
@@ -85,12 +126,17 @@ class LEDPanel:
                                     fill=color)
 
                 pid += 1
+            self._prev_r[index] = r
+            self._prev_g[index] = g
+            self._prev_b[index] = b
         pygame.display.flip()
-        self._prev_r = self._r[:]
-        self._prev_g = self._g[:]
-        self._prev_b = self._b[:]
         if self.generate_images is not None:
             self.generate_images.append(image)
+        # dirty なら再描画する
+        if self._dirty:
+            threading.Thread(target=self._update_display).start()
+        else:
+            self._updating = False
     def clock_tick(self, fps):
         u'''与えられたフレームレートに従って待つ。
         Args:
