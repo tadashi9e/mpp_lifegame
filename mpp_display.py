@@ -45,25 +45,31 @@ class LEDPanel:
         '''
         p64id = p64id_of_pos2d(x, y)
         self._lock.acquire()
-        self._r[p64id] = f64
-        self._dirty = True
-        self._lock.release()
+        try:
+            self._r[p64id] = f64
+            self._dirty = True
+        finally:
+            self._lock.release()
     def set64_g(self, x, y, f64):
         u'''G 情報を更新する。同時に dirty=True にする。
         '''
         p64id = p64id_of_pos2d(x, y)
         self._lock.acquire()
-        self._g[p64id] = f64
-        self._dirty = True
-        self._lock.release()
+        try:
+            self._g[p64id] = f64
+            self._dirty = True
+        finally:
+            self._lock.release()
     def set64_b(self, x, y, f64):
         u'''B 情報を更新する。同時に dirty=True にする。
         '''
         p64id = p64id_of_pos2d(x, y)
         self._lock.acquire()
-        self._b[p64id] = f64
-        self._dirty = True
-        self._lock.release()
+        try:
+            self._b[p64id] = f64
+            self._dirty = True
+        finally:
+            self._lock.release()
     def start_generate_images(self):
         self.generate_images = []
     def update_display(self):
@@ -71,13 +77,13 @@ class LEDPanel:
         描画によって dirty=False になる。
         '''
         self._lock.acquire()
-        if self._updating:
+        try:
+            if not self._updating:
+                self._updating = True
+                self._dirty = False
+                threading.Thread(target=self._update_display).start()
+        finally:
             self._lock.release()
-            return
-        self._updating = True
-        self._dirty = False
-        self._lock.release()
-        threading.Thread(target=self._update_display).start()
     def _update_display(self):
         u'''描画処理本体。
         描画終了時点で dirty=True だったら再描画を行う。
@@ -95,10 +101,12 @@ class LEDPanel:
             pg = self._prev_g[index]
             pb = self._prev_b[index]
             self._lock.acquire()
-            r = self._r[index]
-            g = self._g[index]
-            b = self._b[index]
-            self._lock.release()
+            try:
+                r = self._r[index]
+                g = self._g[index]
+                b = self._b[index]
+            finally:
+                self._lock.release()
             if pr == r and pg == g and pb == b:
                 pid += 64
                 continue

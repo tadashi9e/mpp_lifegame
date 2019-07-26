@@ -262,6 +262,7 @@ if __name__ == '__main__':
     c.panel.clock_tick(1)
     c.test_w()
     c.panel.clock_tick(1)
+    c.reset()
     if len(sys.argv) < 2:
         c.randomize()
     else:
