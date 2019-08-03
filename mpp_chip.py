@@ -4,7 +4,7 @@ mpp_chip_cc のラッパー
 '''
 import mpp_chip_cc
 
-class MPP(object):
+class Controller(object):
     u'''全 PE についてマイクロ命令を呼び出す。
     '''
     def __init__(self, memory_size):
@@ -41,15 +41,15 @@ class MPP(object):
             context_value : コンテキストフラグが 1 で有効か 0 で有効か示す
         '''
         mpp_chip_cc.MPP_store(self._mpp, write_flag, context_value)
-    def recv(self, chip_no, value):
+    def recv64(self, chip_no, value):
         u'''RECV マイクロ命令: 64 個の PE に対して値の受け取りを通知する。
         ----
         Args
             chip_no : 受信通知先 PE チップ
             value : 64 個の PE が受け取る値
         '''
-        mpp_chip_cc.MPP_recv(self._mpp, chip_no, value)
-    def send(self, chip_no):
+        mpp_chip_cc.MPP_recv64(self._mpp, chip_no, value)
+    def send64(self, chip_no):
         u'''SEND マイクロ命令: 64 個の PE に対して値の送信を促す。
         ----
         Args
@@ -57,34 +57,31 @@ class MPP(object):
         Return
             PE チップ上にある 64 個の PE が送信する値
         '''
-        return mpp_chip_cc.MPP_send(self._mpp, chip_no)
-class NewsRouter(object):
-    u'''東西南北方向に配送を行うルータ
-    '''
-    def __init__(self, mpp):
-        self._router = mpp_chip_cc.newRouter(mpp._mpp)
+        return mpp_chip_cc.MPP_send64(self._mpp, chip_no)
+    def send_bulk(self):
+        return mpp_chip_cc.MPP_send_bulk(self._mpp)
     def rotate_n(self):
         u'''N(北) 方向にルータフラグデータをローテートする。
         '''
-        mpp_chip_cc.Router_news_n(self._router)
+        mpp_chip_cc.Router_news_n(self._mpp)
     def rotate_e(self):
         u'''E(東) 方向にルータフラグデータをローテートする。
         '''
-        mpp_chip_cc.Router_news_e(self._router)
+        mpp_chip_cc.Router_news_e(self._mpp)
     def rotate_w(self):
         u'''W(西) 方向にルータフラグデータをローテートする。
         '''
-        mpp_chip_cc.Router_news_w(self._router)
+        mpp_chip_cc.Router_news_w(self._mpp)
     def rotate_s(self):
         u'''S(南) 方向にルータフラグデータをローテートする。
         '''
-        mpp_chip_cc.Router_news_s(self._router)
-    def unicast_2d(self, x, y, b):
+        mpp_chip_cc.Router_news_s(self._mpp)
+    def news_recv(self, x, y, b):
         u'''与えられた x, y 座標に相当する PE にビットデータを配送する。
         '''
-        mpp_chip_cc.Router_unicast_2d(self._router, x, y, b)
-    def read64_2d(self, x, y):
+        mpp_chip_cc.Router_news_recv(self._mpp, x, y, b)
+    def news_send(self, x, y):
         u'''与えられた x, y 座標に相当する PE が属する PE チップにある
         64 個の PE すべてからビットデータを受信し、64bit 値として返す。
         '''
-        return mpp_chip_cc.Router_read64_2d(self._router, x, y)
+        return mpp_chip_cc.Router_news_send(self._mpp, x, y)

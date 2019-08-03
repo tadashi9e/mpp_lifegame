@@ -17,41 +17,43 @@
 
 extern "C" {
 
-typedef MPP<1024> MPP_T;
-typedef Router<1024, 256, 256> ROUTER_T;
-
-static void mpp_chip_free(PyObject* obj) {
-  MPP_T
-    const* mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj,
-                                                                   "MPP"));
-  delete mpp;
+static void mpp_free(PyObject* obj) {
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj,
+                                                               "MPP"));
+  c64->stop();
+  delete c64;
 }
 
 static PyObject*
-mpp_chip_MPP(PyObject* self, PyObject* args) {
+mpp_new_MPP(PyObject* self, PyObject* args) {
   std::size_t memory_size;
   if (!PyArg_ParseTuple(args, "k", &memory_size)) {
     return NULL;
   }
-  return PyCapsule_New(new MPP_T(memory_size),
-                       "MPP", mpp_chip_free);
+  Controller64* controller = new Controller64(memory_size);
+  controller->start();
+  return PyCapsule_New(controller,
+                       "MPP", mpp_free);
 }
 static PyObject*
-mpp_chip_MPP_reset(PyObject* self, PyObject* args) {
+mpp_reset(PyObject* self, PyObject* args) {
   PyObject* obj;
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  MPP_T*
-    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
-  if (!mpp) {
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
     return NULL;
   }
-  mpp->reset();
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandReset>());
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_MPP_load_a(PyObject* self, PyObject* args) {
+mpp_load_a(PyObject* self, PyObject* args) {
   PyObject* obj;
   std::size_t addr_a;
   uint8_t read_flag;
@@ -59,16 +61,18 @@ mpp_chip_MPP_load_a(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "OkBB", &obj, &addr_a, &read_flag, &op_s)) {
     return NULL;
   }
-  MPP_T*
-    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
-  if (!mpp) {
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
     return NULL;
   }
-  mpp->load_a(addr_a, read_flag, op_s);
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandLoadA>(addr_a, read_flag, op_s));
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_MPP_load_b(PyObject* self, PyObject* args) {
+mpp_load_b(PyObject* self, PyObject* args) {
   PyObject* obj;
   std::size_t addr_b;
   uint8_t context_flag;
@@ -76,127 +80,164 @@ mpp_chip_MPP_load_b(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "OkBB", &obj, &addr_b, &context_flag, &op_c)) {
     return NULL;
   }
-  MPP_T*
-    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
-  if (!mpp) {
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
     return NULL;
   }
-  mpp->load_b(addr_b, context_flag, op_c);
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandLoadB>(addr_b, context_flag, op_c));
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_MPP_store(PyObject* self, PyObject* args) {
+mpp_store(PyObject* self, PyObject* args) {
   PyObject* obj;
   uint8_t write_flag;
   bool context_value;
   if (!PyArg_ParseTuple(args, "OBB", &obj, &write_flag, &context_value)) {
     return NULL;
   }
-  MPP_T*
-    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
-  if (!mpp) {
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
     return NULL;
   }
-  mpp->store(write_flag, context_value);
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandStore>(write_flag, context_value));
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_MPP_recv(PyObject* self, PyObject* args) {
+mpp_recv64(PyObject* self, PyObject* args) {
   PyObject* obj;
   int chip_no;
   uint64_t value;
   if (!PyArg_ParseTuple(args, "Oik", &obj, &chip_no, &value)) {
     return NULL;
   }
-  MPP_T*
-    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
-  if (!mpp) {
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
     return NULL;
   }
-  mpp->recv(chip_no, value);
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandRecv64>(chip_no, value));
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_MPP_send(PyObject* self, PyObject* args) {
+mpp_send64(PyObject* self, PyObject* args) {
   PyObject* obj;
   int chip_no;
   if (!PyArg_ParseTuple(args, "Oi", &obj, &chip_no)) {
     return NULL;
   }
-  MPP_T*
-    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
-  if (!mpp) {
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
     return NULL;
   }
-  uint64_t value = mpp->send(chip_no);
+  std::shared_ptr<CommandSend64>
+    cmd(std::make_shared<CommandSend64>(chip_no));
+  c64->enqueue(std::static_pointer_cast<ControllerCommand>(cmd));
+  uint64_t value = cmd->wait_result();
   return PyLong_FromLong(value);
 }
-static void mpp_router_free(PyObject* obj) {
-  ROUTER_T const*
-    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
-  delete router;
-}
-
 static PyObject*
-mpp_chip_Router(PyObject* self, PyObject* args) {
+mpp_send_bulk(PyObject* self, PyObject* args) {
   PyObject* obj;
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  MPP_T*
-    mpp = reinterpret_cast<MPP_T*>(PyCapsule_GetPointer(obj, "MPP"));
-  if (!mpp) {
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
     return NULL;
   }
-  return PyCapsule_New(new ROUTER_T(mpp),
-                       "Router", mpp_router_free);
+  std::shared_ptr<CommandSendBulk>
+    cmd(std::make_shared<CommandSendBulk>());
+  c64->enqueue(std::static_pointer_cast<ControllerCommand>(cmd));
+  std::vector<uint64_t> value = cmd->wait_result();
+  PyObject* listObject = PyList_New(value.size());
+  if (!listObject) {
+    return NULL;
+  }
+  for (unsigned int i = 0; i < value.size(); ++i) {
+    PyObject* element = PyLong_FromLong(value[i]);
+    if (!element) {
+      return NULL;
+    }
+    PyList_SET_ITEM(listObject, i, element);
+  }
+  return listObject;
 }
 static PyObject*
-mpp_chip_Router_news_n(PyObject* self, PyObject* args) {
+mpp_news_n(PyObject* self, PyObject* args) {
   PyObject* obj;
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  ROUTER_T*
-    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
-  router->rotate_news_n();
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
+    return NULL;
+  }
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandNewsRotateN>());
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_Router_news_e(PyObject* self, PyObject* args) {
+mpp_news_e(PyObject* self, PyObject* args) {
   PyObject* obj;
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  ROUTER_T*
-    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
-  router->rotate_news_e();
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
+    return NULL;
+  }
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandNewsRotateE>());
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_Router_news_w(PyObject* self, PyObject* args) {
+mpp_news_w(PyObject* self, PyObject* args) {
   PyObject* obj;
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  ROUTER_T*
-    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
-  router->rotate_news_w();
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
+    return NULL;
+  }
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandNewsRotateW>());
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_Router_news_s(PyObject* self, PyObject* args) {
+mpp_news_s(PyObject* self, PyObject* args) {
   PyObject* obj;
   if (!PyArg_ParseTuple(args, "O", &obj)) {
     return NULL;
   }
-  ROUTER_T*
-    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
-  router->rotate_news_s();
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
+    return NULL;
+  }
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandNewsRotateS>());
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_Router_unicast_2d(PyObject* self, PyObject* args) {
+mpp_news_unicast_recv(PyObject* self, PyObject* args) {
   PyObject* obj;
   int x;
   int y;
@@ -204,40 +245,51 @@ mpp_chip_Router_unicast_2d(PyObject* self, PyObject* args) {
   if (!PyArg_ParseTuple(args, "Oiii", &obj, &x, &y, &b)) {
     return NULL;
   }
-  ROUTER_T*
-    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
-  router->unicast_2d(x, y, b);
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
+    return NULL;
+  }
+  std::shared_ptr<ControllerCommand>
+    cmd(std::make_shared<CommandNewsUnicastRecv>(x, y, b != 0));
+  c64->enqueue(cmd);
   Py_RETURN_NONE;
 }
 static PyObject*
-mpp_chip_Router_read64_2d(PyObject* self, PyObject* args) {
+mpp_news_unicast_send(PyObject* self, PyObject* args) {
   PyObject* obj;
   int x;
   int y;
   if (!PyArg_ParseTuple(args, "Oii", &obj, &x, &y)) {
     return NULL;
   }
-  ROUTER_T*
-    router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
-  uint64_t value = router->read64_2d(x, y);
+  Controller64*
+    c64 = reinterpret_cast<Controller64*>(PyCapsule_GetPointer(obj, "MPP"));
+  if (!c64) {
+    return NULL;
+  }
+  std::shared_ptr<CommandNewsUnicastSend>
+    cmd(std::make_shared<CommandNewsUnicastSend>(x, y));
+  c64->enqueue(cmd);
+  uint64_t value = cmd->wait_result();
   return PyLong_FromLong(value);
 }
 
 static PyMethodDef mpp_chip_methods[] = {
-  {"newMPP", mpp_chip_MPP, METH_VARARGS, "new MPP."},
-  {"MPP_reset", mpp_chip_MPP_reset, METH_VARARGS, "reset MPP."},
-  {"MPP_load_a", mpp_chip_MPP_load_a, METH_VARARGS, "load_a"},
-  {"MPP_load_b", mpp_chip_MPP_load_b, METH_VARARGS, "load_b"},
-  {"MPP_store", mpp_chip_MPP_store, METH_VARARGS, "store"},
-  {"MPP_recv", mpp_chip_MPP_recv, METH_VARARGS, "recv"},
-  {"MPP_send", mpp_chip_MPP_send, METH_VARARGS, "send"},
-  {"newRouter", mpp_chip_Router, METH_VARARGS, "new Router"},
-  {"Router_news_n", mpp_chip_Router_news_n, METH_VARARGS, "news_n"},
-  {"Router_news_e", mpp_chip_Router_news_e, METH_VARARGS, "news_e"},
-  {"Router_news_w", mpp_chip_Router_news_w, METH_VARARGS, "news_w"},
-  {"Router_news_s", mpp_chip_Router_news_s, METH_VARARGS, "news_s"},
-  {"Router_unicast_2d", mpp_chip_Router_unicast_2d, METH_VARARGS, "unicast 2d"},
-  {"Router_read64_2d", mpp_chip_Router_read64_2d, METH_VARARGS, "read 2d"},
+  {"newMPP", mpp_new_MPP, METH_VARARGS, "new MPP."},
+  {"MPP_reset", mpp_reset, METH_VARARGS, "reset MPP."},
+  {"MPP_load_a", mpp_load_a, METH_VARARGS, "load_a"},
+  {"MPP_load_b", mpp_load_b, METH_VARARGS, "load_b"},
+  {"MPP_store", mpp_store, METH_VARARGS, "store"},
+  {"MPP_recv64", mpp_recv64, METH_VARARGS, "recv64"},
+  {"MPP_send64", mpp_send64, METH_VARARGS, "send64"},
+  {"MPP_send_bulk", mpp_send_bulk, METH_VARARGS, "send_bulk"},
+  {"Router_news_n", mpp_news_n, METH_VARARGS, "news_n"},
+  {"Router_news_e", mpp_news_e, METH_VARARGS, "news_e"},
+  {"Router_news_w", mpp_news_w, METH_VARARGS, "news_w"},
+  {"Router_news_s", mpp_news_s, METH_VARARGS, "news_s"},
+  {"Router_news_recv", mpp_news_unicast_recv, METH_VARARGS, "news_recv"},
+  {"Router_news_send", mpp_news_unicast_send, METH_VARARGS, "news_send"},
   {NULL, NULL, 0, NULL}
 };
 

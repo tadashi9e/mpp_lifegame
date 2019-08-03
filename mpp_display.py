@@ -70,6 +70,27 @@ class LEDPanel:
             self._dirty = True
         finally:
             self._lock.release()
+    def set_bulk_r(self, flags):
+        self._lock.acquire()
+        try:
+            self._r = flags
+            self._dirty = True
+        finally:
+            self._lock.release()
+    def set_bulk_g(self, flags):
+        self._lock.acquire()
+        try:
+            self._g = flags
+            self._dirty = True
+        finally:
+            self._lock.release()
+    def set_bulk_b(self, flags):
+        self._lock.acquire()
+        try:
+            self._b = flags
+            self._dirty = True
+        finally:
+            self._lock.release()
     def start_generate_images(self):
         self.generate_images = []
     def update_display(self):

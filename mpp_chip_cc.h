@@ -11,9 +11,14 @@
  */
 
 
+#include <condition_variable>
 #include <cstdint>
 #include <vector>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <queue>
+#include <thread>
 
 /**
  * 64 個の PE について、基本となる ALU 演算を行う。
@@ -182,11 +187,19 @@ class MPP {
           write_flag == 0 ? NULL : &flags[nchips * write_flag],
           op_s, op_c, context_value);
   }
-  void recv(std::size_t chip_no, uint64_t value) {
+  void recv64(std::size_t chip_no, uint64_t value) {
     flags[nchips * FLAG_ROUTE_DATA + chip_no] = value;
   }
-  uint64_t send(std::size_t chip_no) const {
+  uint64_t send64(std::size_t chip_no) const {
     return flags[nchips * FLAG_ROUTE_DATA + chip_no];
+  }
+  std::vector<uint64_t> send_bulk() const {
+    std::vector<uint64_t> vec;
+    vec.reserve(nchips);
+    for (std::size_t n = 0; n < nchips; ++n) {
+      vec.push_back(flags[nchips * FLAG_ROUTE_DATA + n]);
+    }
+    return vec;
   }
 };
 
@@ -196,78 +209,79 @@ class Router {
   Router(MPP<nchips>* mpp)
     : mpp(mpp) {
   }
-  void rotate_news_n() {
+  void news_rotate_n() {
     std::size_t const width64 = width / 64;
     for (std::size_t x = 0; x < width64; ++x) {
-      uint64_t const data0 = mpp->send(x);
+      uint64_t const data0 = mpp->send64(x);
       std::size_t p0 = x + width64;
       std::size_t p1 = x;
       for (std::size_t y = 1; y < height; ++y) {
-        uint64_t const data = mpp->send(p0);
-        mpp->recv(p1, data);
+        uint64_t const data = mpp->send64(p0);
+        mpp->recv64(p1, data);
         p0 += width64;
         p1 += width64;
       }
-      mpp->recv(p1, data0);
+      mpp->recv64(p1, data0);
     }
   }
-  void rotate_news_s() {
+  void news_rotate_s() {
     std::size_t const width64 = width / 64;
     for (std::size_t x = 0; x < width64; ++x) {
-      uint64_t data = mpp->send(x + width64 * (height - 1));
+      uint64_t data = mpp->send64(x + width64 * (height - 1));
       std::size_t p = x;
       for (size_t y = 0; y < height; ++y) {
-        uint64_t const data0 = mpp->send(p);
-        mpp->recv(p, data);
+        uint64_t const data0 = mpp->send64(p);
+        mpp->recv64(p, data);
         data = data0;
         p += width64;
       }
     }
   }
-  void rotate_news_e() {
+  void news_rotate_e() {
     std::size_t const width64 = width / 64;
     for (std::size_t y = 0; y < height; ++y) {
-      uint64_t carry = mpp->send(width64 - 1 + width64 * y) >> 63;
+      uint64_t carry = mpp->send64(width64 - 1 + width64 * y) >> 63;
       for (std::size_t x = 0; x < width64; ++x) {
         std::size_t p = x + width64 * y;
-        uint64_t const data0 = mpp->send(p);
+        uint64_t const data0 = mpp->send64(p);
         uint64_t const carry2 = data0 >> 63;
         uint64_t const data1 = (data0 << 1) | (carry & 0x01);
         carry = carry2;
-        mpp->recv(p, data1);
+        mpp->recv64(p, data1);
       }
     }
   }
-  void rotate_news_w() {
+  void news_rotate_w() {
     std::size_t const width64 = width / 64;
     for (std::size_t y = 0; y < height; ++y) {
       std::size_t p = width64 * y;
-      uint64_t data0 = mpp->send(p);
+      uint64_t data0 = mpp->send64(p);
       uint64_t data = data0;
       for (std::size_t x = 0; x < width64 - 1; ++x) {
-        uint64_t const d = mpp->send(p + 1);
+        uint64_t const d = mpp->send64(p + 1);
         uint64_t const carry = d & 0x01;
-        mpp->recv(p, (carry << 63) | (data >> 1));
+        mpp->recv64(p, (carry << 63) | (data >> 1));
         data = d;
         ++p;
       }
       uint64_t const carry = data0 & 0x01;
-      mpp->recv(p, (carry << 63) | (data >> 1));
+      mpp->recv64(p, (carry << 63) | (data >> 1));
     }
   }
-  void unicast_2d(int x, int y, bool b) {
+  void news_unicast_recv(int x, int y, bool b) {
     std::size_t p64id = p64id_of_pos2d(x, y);
-    uint64_t data = mpp->send(p64id);
+    uint64_t data = mpp->send64(p64id);
     if (b) {
       data |= (static_cast<uint64_t>(1) << (x % 64));
     } else {
       data &= ~(static_cast<uint64_t>(1) << (x % 64));
     }
-    mpp->recv(p64id, data);
+    mpp->recv64(p64id, data);
   }
-  uint64_t read64_2d(int x, int y) {
+  bool news_unicast_send(int x, int y) {
     std::size_t p64id = p64id_of_pos2d(x, y);
-    return mpp->send(p64id);
+    uint64_t data = mpp->send64(p64id);
+    return (data & (static_cast<uint64_t>(1) << (x % 64))) != 0;
   }
 
  private:
@@ -279,4 +293,242 @@ class Router {
     return pid_of_pos2d(x, y) / 64;
   }
 };
-
+typedef MPP<1024> MPP64;
+typedef Router<1024, 256, 256> Router64;
+class ControllerCommand {
+public:
+  virtual void execute(MPP64* mpp, Router64* router) = 0;
+};
+class CommandReset : public ControllerCommand {
+public:
+  CommandReset() {
+  }
+  virtual void execute(MPP64* mpp, Router64* router) {
+    mpp->reset();
+  }
+};
+class CommandLoadA : public ControllerCommand {
+public:
+  CommandLoadA(std::size_t addr, uint8_t flag, uint8_t op_s)
+    : addr(addr), flag(flag), op_s(op_s) {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    mpp->load_a(addr, flag, op_s);
+  }
+private:
+  std::size_t const addr;
+  uint8_t const flag;
+  uint8_t const op_s;
+};
+class CommandLoadB : public ControllerCommand {
+public:
+  CommandLoadB(std::size_t addr, uint8_t flag, uint8_t op_c)
+    : addr(addr), flag(flag), op_c(op_c) {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    mpp->load_b(addr, flag, op_c);
+  }
+private:
+  std::size_t const addr;
+  uint8_t const flag;
+  uint8_t const op_c;
+};
+class CommandStore : public ControllerCommand {
+public:
+  CommandStore(uint8_t flag, bool context_value)
+    : flag(flag), context_value(context_value) {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    mpp->store(flag, context_value);
+  }
+private:
+  uint8_t const flag;
+  bool const context_value;
+};
+class CommandNewsRotateN : public ControllerCommand {
+public:
+  CommandNewsRotateN() {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    router->news_rotate_n();
+  }
+};
+class CommandNewsRotateE : public ControllerCommand {
+public:
+  CommandNewsRotateE() {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    router->news_rotate_e();
+  }
+};
+class CommandNewsRotateW : public ControllerCommand {
+public:
+  CommandNewsRotateW() {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    router->news_rotate_w();
+  }
+};
+class CommandNewsRotateS : public ControllerCommand {
+public:
+  CommandNewsRotateS() {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    router->news_rotate_s();
+  }
+};
+class CommandRecv64 : public ControllerCommand {
+public:
+  CommandRecv64(std::size_t chip_no, uint64_t data)
+    : chip_no(chip_no), data(data) {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    mpp->recv64(chip_no, data);
+  }
+private:
+  std::size_t const chip_no;
+  uint64_t const data;
+};
+class CommandSend64 : public ControllerCommand {
+public:
+  CommandSend64(std::size_t chip_no)
+    : chip_no(chip_no), done(false) {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    uint64_t data_ = mpp->send64(chip_no);
+    std::unique_lock<std::mutex> lock(mutex_);
+    data = data_;
+    done = true;
+    cond_.notify_all();
+  }
+  uint64_t wait_result() const {
+    std::unique_lock<std::mutex> lock(mutex_);
+    while (!done) {
+      cond_.wait(lock);
+    }
+    return data;
+  }
+private:
+  std::size_t const chip_no;
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cond_;
+  bool done;
+  uint64_t data;
+};
+class CommandSendBulk : public ControllerCommand {
+public:
+  CommandSendBulk() : done(false) {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    std::vector<uint64_t> data_ = mpp->send_bulk();
+    std::unique_lock<std::mutex> lock(mutex_);
+    data = data_;
+    done = true;
+    cond_.notify_all();
+  }
+  std::vector<uint64_t> wait_result() const {
+    std::unique_lock<std::mutex> lock(mutex_);
+    while (!done) {
+      cond_.wait(lock);
+    }
+    return data;
+  }
+private:
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cond_;
+  bool done;
+  std::vector<uint64_t> data;
+};
+class CommandNewsUnicastRecv : public ControllerCommand {
+public:
+  CommandNewsUnicastRecv(int x, int y, bool b)
+    : x(x), y(y), b(b) {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    router->news_unicast_recv(x, y, b);
+  }
+private:
+  int const x;
+  int const y;
+  bool const b;
+};
+class CommandNewsUnicastSend : public ControllerCommand {
+public:
+  CommandNewsUnicastSend(int x, int y)
+    : x(x), y(y), done(false) {
+  }
+  void execute(MPP64* mpp, Router64* router) {
+    bool b_ = router->news_unicast_send(x, y);
+    std::unique_lock<std::mutex> lock(mutex_);
+    b = b_;
+    done = true;
+    cond_.notify_all();
+  }
+  bool wait_result() const {
+    std::unique_lock<std::mutex> lock(mutex_);
+    while (!done) {
+      cond_.wait(lock);
+    }
+    return b;
+  }
+private:
+  int const x;
+  int const y;
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cond_;
+  bool done;
+  bool b;
+};
+class Controller64 {
+public:
+  Controller64(std::size_t address_size)
+    : mpp_(address_size), router_(&mpp_), stop_(false) {
+  }
+  void enqueue(std::shared_ptr<ControllerCommand> cmd) {
+    std::unique_lock<std::mutex> lock(mutex_);
+    cmd_queue_.push(cmd);
+    cond_.notify_all();
+  }
+  bool empty() const {
+    std::unique_lock<std::mutex> lock(mutex_);
+    return cmd_queue_.empty();
+  }
+  void start() {
+    thread_ = std::make_shared<std::thread>(&Controller64::execute_, this);
+  }
+  void stop() {
+    {
+      std::unique_lock<std::mutex> lock(mutex_);
+      stop_ = true;
+      cond_.notify_all();
+    }
+    if (thread_) {
+      thread_->join();
+    }
+  }
+private:
+  MPP64 mpp_;
+  Router64 router_;
+  std::shared_ptr<std::thread> thread_;
+  mutable std::mutex mutex_;
+  mutable std::condition_variable cond_;
+  bool stop_;
+  std::queue<std::shared_ptr<ControllerCommand> > cmd_queue_;
+  void execute_() {
+    for (;;) {
+      std::shared_ptr<ControllerCommand> cmd;
+      {
+        std::unique_lock<std::mutex> lock(mutex_);
+        while (cmd_queue_.empty()) {
+          if (stop_) {
+            return;
+          }
+          cond_.wait(lock);
+        }
+        cmd = cmd_queue_.front();
+        cmd_queue_.pop();
+      }
+      cmd->execute(&mpp_, &router_);
+    }
+  }
+};

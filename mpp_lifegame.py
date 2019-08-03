@@ -3,7 +3,7 @@ u'''
 65536 個の 1bit PE を 256×256 の二次元結合した計算機のシミュレータで
 ライフゲームを実行するサンプル。
 '''
-from mpp_chip import MPP, NewsRouter
+import mpp_chip
 from mpp_display import LEDPanel, WIDTH, HEIGHT
 from life_file import read_life_105_file
 import random
@@ -21,8 +21,7 @@ class Controller:
         Args
             memory_size : 各 PE のメモリサイズ（ビット数）
         '''
-        self.mpp = MPP(memory_size)
-        self.router = NewsRouter(self.mpp)
+        self.mpp = mpp_chip.Controller(memory_size)
         self.panel = LEDPanel()
         # ヒープ管理
         self.htop = 0
@@ -31,24 +30,18 @@ class Controller:
     def to_led_r(self):
         u'''ルータデータフラグ上のデータを LED ディスプレイパネルの R に送信する。
         '''
-        for y in range(0, HEIGHT):
-            for x in range(0, WIDTH >> 6):
-                data64 = self.router.read64_2d(x << 6, y)
-                self.panel.set64_r(x << 6, y, data64)
+        flags = self.mpp.send_bulk()
+        self.panel.set_bulk_r(flags)
     def to_led_g(self):
         u'''ルータデータフラグ上のデータを LED ディスプレイパネルの G に送信する。
         '''
-        for y in range(0, HEIGHT):
-            for x in range(0, WIDTH >> 6):
-                data64 = self.router.read64_2d(x << 6, y)
-                self.panel.set64_g(x << 6, y, data64)
+        flags = self.mpp.send_bulk()
+        self.panel.set_bulk_g(flags)
     def to_led_b(self):
         u'''ルータデータフラグ上のデータを LED ディスプレイパネルの B に送信する。
         '''
-        for y in range(0, HEIGHT):
-            for x in range(0, WIDTH >> 6):
-                data64 = self.router.read64_2d(x << 6, y)
-                self.panel.set64_b(x << 6, y, data64)
+        flags = self.mpp.send_bulk()
+        self.panel.set_bulk_b(flags)
     def led_update(self):
         u'''LED ディスプレイパネルの表示を更新する。
         '''
@@ -143,7 +136,7 @@ class Controller:
         '''
         for y in range(0, HEIGHT):
             for x in range(0, WIDTH):
-                self.router.unicast_2d(
+                self.mpp.news_recv(
                     x, y, 1 if random.random() <= rate else 0)
     def load_life(self, x0, y0, path):
         u'''与えられたファイルパスからライフゲームのパターンファイルを読み込む。
@@ -151,7 +144,7 @@ class Controller:
         反映後、R(赤) でパネルに表示する。
         '''
         for x, y in read_life_105_file(x0, y0, path):
-            self.router.unicast_2d(x, y, 1)
+            self.mpp.news_recv(x, y, 1)
         self.to_led_r()
         self.led_update()
         self.panel.clock_tick(1)
@@ -181,21 +174,21 @@ class Controller:
         #self.led_update()
         # ルータはセル状態を S-E-N-N-W-W-S-S と順に回す。
         # 各ノードは回ってきたセル状態が 1 だった回数をカウントする
-        self.router.rotate_s()
+        self.mpp.rotate_s()
         self.count_flag(counter_start, counter_start + 2, FLAG_ROUTE_DATA)
-        self.router.rotate_e()
+        self.mpp.rotate_e()
         self.count_flag(counter_start, counter_start + 3, FLAG_ROUTE_DATA)
-        self.router.rotate_n()
+        self.mpp.rotate_n()
         self.count_flag(counter_start, counter_start + 4, FLAG_ROUTE_DATA)
-        self.router.rotate_n()
+        self.mpp.rotate_n()
         self.count_flag(counter_start, counter_start + 5, FLAG_ROUTE_DATA)
-        self.router.rotate_w()
+        self.mpp.rotate_w()
         self.count_flag(counter_start, counter_start + 6, FLAG_ROUTE_DATA)
-        self.router.rotate_w()
+        self.mpp.rotate_w()
         self.count_flag(counter_start, counter_start + 7, FLAG_ROUTE_DATA)
-        self.router.rotate_s()
+        self.mpp.rotate_s()
         self.count_flag(counter_start, counter_start + 8, FLAG_ROUTE_DATA)
-        self.router.rotate_s()
+        self.mpp.rotate_s()
         self.count_flag(counter_start, counter_end, FLAG_ROUTE_DATA)
         # カウント結果は 1 の並びなので、XOR でカウント位置のみ 1 にする
         for i in range(counter_start, counter_end - 1):
@@ -218,36 +211,36 @@ class Controller:
         画面全体に斜めの線を描く。
         '''
         for i in range(0, 256):
-            self.router.unicast_2d(i, i, 1)
-            self.router.unicast_2d(WIDTH-i, i, 1)
+            self.mpp.news_recv(i, i, 1)
+            self.mpp.news_recv(WIDTH-i, i, 1)
         self.to_led_r()
         self.led_update()
     def test_n(self):
         u'''ルータテスト用。100 回 N 方向に移動する。
         '''
         for i in range(0, 100):
-            self.router.rotate_n()
+            self.mpp.rotate_n()
             self.to_led_r()
             self.led_update()
     def test_e(self):
         u'''ルータテスト用。100 回 E 方向に移動する。
         '''
         for i in range(0, 100):
-            self.router.rotate_e()
+            self.mpp.rotate_e()
             self.to_led_r()
             self.led_update()
     def test_w(self):
         u'''ルータテスト用。100 回 W 方向に移動する。
         '''
         for i in range(0, 100):
-            self.router.rotate_w()
+            self.mpp.rotate_w()
             self.to_led_r()
             self.led_update()
     def test_s(self):
         u'''ルータテスト用。100 回 S 方向に移動する。
         '''
         for i in range(0, 100):
-            self.router.rotate_s()
+            self.mpp.rotate_s()
             self.to_led_r()
             self.led_update()
 if __name__ == '__main__':
