@@ -1,4 +1,5 @@
 # -*- coding:utf-8; mode:python -*-
+import atexit
 import threading
 
 WIDTH=256
@@ -40,71 +41,57 @@ class LEDPanel:
         pygame.display.set_caption('MPP simulator')
         self.generate_images = None
         self.clock = pygame.time.Clock()
+        atexit.register(self.stop)
+    def stop(self):
+        while True:
+            with self._lock as lock:
+                if self._updating:
+                    break
+        pygame.quit()
     def set64_r(self, x, y, f64):
         u'''R 情報を更新する。同時に dirty=True にする。
         '''
         p64id = p64id_of_pos2d(x, y)
-        self._lock.acquire()
-        try:
+        with self._lock as lock:
             self._r[p64id] = f64
             self._dirty = True
-        finally:
-            self._lock.release()
     def set64_g(self, x, y, f64):
         u'''G 情報を更新する。同時に dirty=True にする。
         '''
         p64id = p64id_of_pos2d(x, y)
-        self._lock.acquire()
-        try:
+        with self._lock as lock:
             self._g[p64id] = f64
             self._dirty = True
-        finally:
-            self._lock.release()
     def set64_b(self, x, y, f64):
         u'''B 情報を更新する。同時に dirty=True にする。
         '''
         p64id = p64id_of_pos2d(x, y)
-        self._lock.acquire()
-        try:
+        with self._lock as lock:
             self._b[p64id] = f64
             self._dirty = True
-        finally:
-            self._lock.release()
     def set_bulk_r(self, flags):
-        self._lock.acquire()
-        try:
+        with self._lock as lock:
             self._r = flags
             self._dirty = True
-        finally:
-            self._lock.release()
     def set_bulk_g(self, flags):
-        self._lock.acquire()
-        try:
+        with self._lock as lock:
             self._g = flags
             self._dirty = True
-        finally:
-            self._lock.release()
     def set_bulk_b(self, flags):
-        self._lock.acquire()
-        try:
+        with self._lock as lock:
             self._b = flags
             self._dirty = True
-        finally:
-            self._lock.release()
     def start_generate_images(self):
         self.generate_images = []
     def update_display(self):
         u'''描画スレッドが動作中でないなら描画スレッドを起動する。
         描画によって dirty=False になる。
         '''
-        self._lock.acquire()
-        try:
+        with self._lock as lock:
             if not self._updating:
                 self._updating = True
                 self._dirty = False
                 threading.Thread(target=self._update_display).start()
-        finally:
-            self._lock.release()
     def _update_display(self):
         u'''描画処理本体。
         描画終了時点で dirty=True だったら再描画を行う。
@@ -121,13 +108,10 @@ class LEDPanel:
             pr = self._prev_r[index]
             pg = self._prev_g[index]
             pb = self._prev_b[index]
-            self._lock.acquire()
-            try:
+            with self._lock as lock:
                 r = self._r[index]
                 g = self._g[index]
                 b = self._b[index]
-            finally:
-                self._lock.release()
             if pr == r and pg == g and pb == b:
                 pid += 64
                 continue
