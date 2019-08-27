@@ -164,7 +164,7 @@ mpp_send_bulk(PyObject* self, PyObject* args) {
     return NULL;
   }
   for (unsigned int i = 0; i < value.size(); ++i) {
-    PyObject* element = PyLong_FromLong(value[i]);
+    PyObject* element = PyLong_FromUnsignedLong(value[i]);
     if (!element) {
       return NULL;
     }
@@ -272,7 +272,7 @@ mpp_news_unicast_send(PyObject* self, PyObject* args) {
     cmd(std::make_shared<CommandNewsUnicastSend>(x, y));
   c64->enqueue(cmd);
   uint64_t value = cmd->wait_result();
-  return PyLong_FromLong(value);
+  return PyLong_FromUnsignedLong(value);
 }
 
 static PyMethodDef mpp_chip_methods[] = {
