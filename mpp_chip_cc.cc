@@ -129,7 +129,7 @@ mpp_chip_MPP_send(PyObject* self, PyObject* args) {
     return NULL;
   }
   uint64_t value = mpp->send(chip_no);
-  return PyLong_FromLong(value);
+  return PyLong_FromUnsignedLong(value);
 }
 static void mpp_router_free(PyObject* obj) {
   ROUTER_T const*
@@ -220,7 +220,7 @@ mpp_chip_Router_read64_2d(PyObject* self, PyObject* args) {
   ROUTER_T*
     router = reinterpret_cast<ROUTER_T*>(PyCapsule_GetPointer(obj, "Router"));
   uint64_t value = router->read64_2d(x, y);
-  return PyLong_FromLong(value);
+  return PyLong_FromUnsignedLong(value);
 }
 
 static PyMethodDef mpp_chip_methods[] = {
